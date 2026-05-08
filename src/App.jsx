@@ -363,7 +363,15 @@ function App() {
       </header>
 
       <div className="hero-zone" aria-hidden="true">
-        <img className="hero-visual" src={heroImage} alt="" />
+        <img
+          className="hero-visual"
+          src={heroImage}
+          width="1536"
+          height="1021"
+          alt=""
+          decoding="async"
+          fetchPriority="high"
+        />
       </div>
 
       <form className="quote-panel" onSubmit={handleCalculate} aria-label="Расчет грузоперевозки">

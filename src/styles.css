@@ -473,10 +473,9 @@ a {
   margin: 0 calc(var(--page-x) * -1);
   object-fit: cover;
   object-position: center bottom;
+  image-rendering: auto;
   pointer-events: none;
   user-select: none;
-  transform: translateY(clamp(2px, calc(var(--app-vh) * 0.6), 8px));
-  filter: drop-shadow(0 16px 28px rgba(32, 39, 62, 0.08));
 }
 
 .status-row {
