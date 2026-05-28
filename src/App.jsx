@@ -1,19 +1,34 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowRight,
+  Calculator,
   ChevronDown,
   Contact,
+  Gauge,
+  LoaderCircle,
+  MapPin,
+  MapPinned,
   Menu,
   Phone,
   Truck,
 } from 'lucide-react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import logo from '../logo.svg';
 import heroImage from '../hero.png';
-import speedIcon from '../speed.png';
-import shIcon from '../sh.png';
-import lmIcon from '../lm.png';
 
-const cities = [
+const speedIcon = '/icon/speed.png';
+const shIcon = '/icon/sh.png';
+const lmIcon = '/icon/lm.png';
+
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+});
+
+const cityOptions = [
   'Москва',
   'Санкт-Петербург',
   'Казань',
@@ -29,29 +44,42 @@ const cities = [
   'Владивосток',
 ];
 
-const weights = [
-  { label: 'От 100 кг', kg: 100, factor: 1 },
-  { label: 'От 1500 кг', kg: 1500, factor: 2.7 },
-  { label: 'От 5000 кг', kg: 5000, factor: 5.8 },
-  { label: 'От 10000 кг', kg: 10000, factor: 9.2 },
-  { label: 'От 20000 кг', kg: 20000, factor: 15.5 },
+const weightOptions = [
+  '500 кг',
+  '1000 кг',
+  '2000 кг',
+  '5000 кг',
+  '10000 кг',
+  '20000 кг',
 ];
 
-const cityRates = {
-  Москва: 1,
-  'Санкт-Петербург': 1.08,
-  Казань: 1.16,
-  'Нижний Новгород': 1.1,
-  Екатеринбург: 1.42,
-  Новосибирск: 1.72,
-  Краснодар: 1.28,
-  'Ростов-на-Дону': 1.22,
-  Самара: 1.2,
-  Челябинск: 1.35,
-  Пермь: 1.3,
-  Уфа: 1.27,
-  Владивосток: 2.05,
+const cityCoordinates = {
+  Москва: { lat: 55.7558, lng: 37.6176 },
+  'Санкт-Петербург': { lat: 59.9343, lng: 30.3351 },
+  Казань: { lat: 55.7961, lng: 49.1064 },
+  'Нижний Новгород': { lat: 56.2965, lng: 43.9361 },
+  Екатеринбург: { lat: 56.8389, lng: 60.6057 },
+  Новосибирск: { lat: 55.0084, lng: 82.9357 },
+  Краснодар: { lat: 45.0355, lng: 38.9753 },
+  'Ростов-на-Дону': { lat: 47.2357, lng: 39.7015 },
+  Самара: { lat: 53.1959, lng: 50.1008 },
+  Челябинск: { lat: 55.1644, lng: 61.4368 },
+  Пермь: { lat: 58.0105, lng: 56.2502 },
+  Уфа: { lat: 54.7388, lng: 55.9721 },
+  Владивосток: { lat: 43.1155, lng: 131.8855 },
 };
+
+const sharedFeatures = [
+  'Гарантия лучшей цены',
+  'Личный логист',
+  'Надежный транспорт',
+];
+
+const dedicatedFeatures = [
+  'Подача машины в день заказа',
+  'Личный логист',
+  'Надежный транспорт',
+];
 
 function SoftHomeIcon() {
   return (
@@ -72,16 +100,235 @@ function formatPrice(value) {
   }).format(value);
 }
 
+function formatNumber(value) {
+  return new Intl.NumberFormat('ru-RU', {
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function pluralizeMachines(count) {
+  if (count === 0) return 'Под запрос';
+
+  const lastDigit = count % 10;
+  const lastTwo = count % 100;
+
+  if (lastTwo >= 11 && lastTwo <= 19) return `${formatNumber(count)} машин`;
+
+  if (lastDigit === 1) return `${formatNumber(count)} машина`;
+  if (lastDigit >= 2 && lastDigit <= 4) return `${formatNumber(count)} машины`;
+
+  return `${formatNumber(count)} машин`;
+}
+
+function parseWeight(value) {
+  if (!value) return 0;
+
+  const normalized = value.toLowerCase().replace(/\s+/g, '').replace(',', '.');
+  const numberMatch = normalized.match(/[\d.]+/);
+
+  if (!numberMatch) return 0;
+
+  const numericValue = Number.parseFloat(numberMatch[0]);
+
+  if (!Number.isFinite(numericValue)) return 0;
+
+  if (normalized.includes('т')) {
+    return Math.round(numericValue * 1000);
+  }
+
+  return Math.round(numericValue);
+}
+
+function getTariffProfile(weightKg) {
+  if (weightKg <= 100) {
+    return {
+      dedicatedLabel: 'Отдельное авто',
+      dedicatedRate: null,
+      vehicleCount: 6,
+    };
+  }
+
+  if (weightKg <= 1500) {
+    return {
+      dedicatedLabel: 'Отдельная газель',
+      dedicatedRate: 23,
+      vehicleCount: 3,
+    };
+  }
+
+  if (weightKg <= 3000) {
+    return {
+      dedicatedLabel: 'Отдельная газель',
+      dedicatedRate: 25,
+      vehicleCount: 3,
+    };
+  }
+
+  if (weightKg <= 5000) {
+    return {
+      dedicatedLabel: 'Отдельный 5-тонник',
+      dedicatedRate: 30,
+      vehicleCount: 5,
+    };
+  }
+
+  if (weightKg <= 10000) {
+    return {
+      dedicatedLabel: 'Отдельный 10-тонник',
+      dedicatedRate: 43,
+      vehicleCount: 4,
+    };
+  }
+
+  if (weightKg <= 21000) {
+    return {
+      dedicatedLabel: 'Отдельный 20-тонник',
+      dedicatedRate: 50,
+      vehicleCount: 6,
+    };
+  }
+
+  return {
+    dedicatedLabel: 'Тяжеловесный груз',
+    dedicatedRate: 50,
+    vehicleCount: 0,
+    isOversize: true,
+  };
+}
+
+function buildEstimate({
+  distanceKm,
+  fromCity,
+  toCity,
+  weightKg,
+}) {
+  const tariffProfile = getTariffProfile(weightKg);
+
+  if (tariffProfile.isOversize) {
+    return {
+      distanceKm,
+      fromCity,
+      toCity,
+      weightKg,
+      distanceLabel: `${formatNumber(distanceKm)} км`,
+      routeLabel: `${fromCity} → ${toCity}`,
+      isOversize: true,
+    };
+  }
+
+  let dedicatedPrice = 6000;
+  let sharedPrice = 6000;
+
+  if (tariffProfile.dedicatedRate !== null) {
+    dedicatedPrice = Math.round(distanceKm * tariffProfile.dedicatedRate);
+
+    if (tariffProfile.dedicatedRate === 50 && dedicatedPrice < 21000) {
+      dedicatedPrice = 20000;
+      sharedPrice = 20000;
+    } else {
+      sharedPrice = Math.round(dedicatedPrice * 0.9);
+    }
+  }
+
+  return {
+    distanceKm,
+    distanceLabel: `${formatNumber(distanceKm)} км`,
+    fromCity,
+    toCity,
+    routeLabel: `${fromCity} → ${toCity}`,
+    weightKg,
+    vehicleCount: tariffProfile.vehicleCount,
+    dedicatedLabel: tariffProfile.dedicatedLabel,
+    dedicatedPrice,
+    sharedPrice,
+    dedicatedFeatures,
+    sharedFeatures,
+  };
+}
+
+function buildRouteLink(fromCity, toCity) {
+  const params = new URLSearchParams({
+    api: '1',
+    origin: fromCity,
+    destination: toCity,
+    travelmode: 'driving',
+  });
+
+  return `https://www.google.com/maps/dir/?${params.toString()}`;
+}
+
+function waitForNextPaint() {
+  return new Promise((resolve) => {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(resolve);
+    });
+  });
+}
+
+function haversineDistanceKm(fromPoint, toPoint) {
+  const toRadians = (value) => (value * Math.PI) / 180;
+  const earthRadiusKm = 6371;
+  const latDelta = toRadians(toPoint.lat - fromPoint.lat);
+  const lngDelta = toRadians(toPoint.lng - fromPoint.lng);
+  const fromLat = toRadians(fromPoint.lat);
+  const toLat = toRadians(toPoint.lat);
+
+  const a = Math.sin(latDelta / 2) ** 2
+    + Math.cos(fromLat) * Math.cos(toLat) * Math.sin(lngDelta / 2) ** 2;
+
+  return earthRadiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function normalizeGeometryPoint(point) {
+  return [point.lat, point.lng];
+}
+
+function getApproximateDistanceKm(fromCity, toCity) {
+  const fromPoint = cityCoordinates[fromCity];
+  const toPoint = cityCoordinates[toCity];
+
+  if (!fromPoint || !toPoint) {
+    throw new Error('Для одного из городов нет координат маршрута');
+  }
+
+  if (fromCity === toCity) {
+    return 1;
+  }
+
+  return Math.max(1, Math.round(haversineDistanceKm(fromPoint, toPoint) * 1.18));
+}
+
+function leafletLatLng(city) {
+  const point = cityCoordinates[city];
+  if (!point) return null;
+  return L.latLng(point.lat, point.lng);
+}
+
+async function fetchOsrmRoute(fromCity, toCity) {
+  const from = cityCoordinates[fromCity];
+  const to = cityCoordinates[toCity];
+  if (!from || !to) throw new Error('No coordinates');
+
+  const url = `https://router.project-osrm.org/route/v1/driving/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('OSRM request failed');
+  const data = await res.json();
+  if (!data?.routes?.[0]) throw new Error('No route');
+  return data.routes[0];
+}
+
 function SelectField({
   id,
   label,
   value,
   options,
   onChange,
-  iconClass,
+  icon,
   tone,
   openMenu,
   setOpenMenu,
+  inputMode = 'text',
+  emptyText = 'Ничего не найдено',
 }) {
   const isOpen = openMenu === id;
   const [inputValue, setInputValue] = useState(value);
@@ -92,25 +339,16 @@ function SelectField({
   const visibleOptions = useMemo(() => {
     const normalizedQuery = hasTyped ? inputValue.trim().toLowerCase() : '';
     const filteredOptions = normalizedQuery
-      ? options.filter((option) => {
-          const optionValue = typeof option === 'string' ? option : option.label;
-          return optionValue.toLowerCase().includes(normalizedQuery);
-        })
+      ? options.filter((option) => option.toLowerCase().includes(normalizedQuery))
       : options;
     const orderedOptions = normalizedQuery
       ? filteredOptions
       : [
-          ...filteredOptions.filter((option) => {
-            const optionValue = typeof option === 'string' ? option : option.label;
-            return optionValue === value;
-          }),
-          ...filteredOptions.filter((option) => {
-            const optionValue = typeof option === 'string' ? option : option.label;
-            return optionValue !== value;
-          }),
+          ...filteredOptions.filter((option) => option === value),
+          ...filteredOptions.filter((option) => option !== value),
         ];
 
-    return orderedOptions.slice(0, 5);
+    return orderedOptions.slice(0, 6);
   }, [hasTyped, inputValue, options, value]);
 
   useEffect(() => {
@@ -142,12 +380,13 @@ function SelectField({
     setHasTyped(nextValue.trim().length > 0);
     setReplaceOnType(false);
     setOpenMenu(id);
+    onChange(nextValue);
   };
 
   return (
     <div className="field">
       <span className={`field-icon field-icon-${tone}`}>
-        <i className={`bi ${iconClass}`} aria-hidden="true" />
+        {icon}
       </span>
 
       <div className="field-content">
@@ -159,6 +398,7 @@ function SelectField({
               ref={inputRef}
               className={`combobox-input ${replaceOnType ? 'is-soft-selected' : ''}`}
               type="text"
+              inputMode={inputMode}
               value={inputValue}
               aria-haspopup="listbox"
               aria-expanded={isOpen}
@@ -215,6 +455,7 @@ function SelectField({
                 setHasTyped(nextValue.trim().length > 0);
                 setReplaceOnType(false);
                 setOpenMenu(id);
+                onChange(nextValue);
               }}
               onKeyDown={(event) => {
                 if (
@@ -247,9 +488,8 @@ function SelectField({
                 if (event.key === 'Enter' && isOpen && visibleOptions.length > 0) {
                   event.preventDefault();
                   const firstOption = visibleOptions[0];
-                  const optionValue = typeof firstOption === 'string' ? firstOption : firstOption.label;
-                  onChange(optionValue);
-                  setInputValue(optionValue);
+                  onChange(firstOption);
+                  setInputValue(firstOption);
                   setHasTyped(false);
                   setOpenMenu(null);
                 }
@@ -271,30 +511,29 @@ function SelectField({
             <div className="dropdown-menu">
               <div className="dropdown-options" role="listbox">
                 {visibleOptions.map((option) => {
-                  const optionValue = typeof option === 'string' ? option : option.label;
-                  const isSelected = optionValue === value;
+                  const isSelected = option === value;
 
                   return (
                     <button
-                      key={optionValue}
+                      key={option}
                       className={`dropdown-option ${isSelected ? 'is-selected' : ''}`}
                       type="button"
                       role="option"
                       aria-selected={isSelected}
                       onClick={() => {
-                        onChange(optionValue);
-                        setInputValue(optionValue);
+                        onChange(option);
+                        setInputValue(option);
                         setHasTyped(false);
                         setOpenMenu(null);
                       }}
                     >
-                      {optionValue}
+                      {option}
                     </button>
                   );
                 })}
 
                 {visibleOptions.length === 0 ? (
-                  <span className="dropdown-empty">Город не найден</span>
+                  <span className="dropdown-empty">{emptyText}</span>
                 ) : null}
               </div>
             </div>
@@ -305,12 +544,88 @@ function SelectField({
   );
 }
 
+function RouteCard({ routeLabel, weightKg, distanceLabel }) {
+  return (
+    <article className="route-card">
+      <div className="route-card__top-row">
+        <span className="route-card__badge">Результат расчета</span>
+
+        <div className="route-card__info-stack">
+          <span className="route-card__info-item">
+            <Gauge size={16} className="route-card__info-icon route-card__info-icon--orange" />
+            {formatNumber(weightKg)} кг
+          </span>
+          <span className="route-card__info-item">
+            <MapPin size={16} className="route-card__info-icon route-card__info-icon--blue" />
+            {distanceLabel}
+          </span>
+        </div>
+      </div>
+
+      <h2 className="route-card__route">
+        {routeLabel.split('→').map((part, i, arr) => (
+          <span key={i}>
+            {part.trim()}
+            {i < arr.length - 1 && <span className="route-card__route-arrow">→</span>}
+          </span>
+        ))}
+      </h2>
+
+      <div className="route-card__image-placeholder" />
+    </article>
+  );
+}
+
+function TariffCard({
+  title,
+  price,
+  vehicleCount,
+  features,
+  recommended,
+}) {
+  return (
+    <article className={`tariff-card ${recommended ? 'tariff-card--recommended' : ''}`}>
+      {recommended ? <div className="tariff-card__ribbon">Рекомендуем</div> : null}
+
+      <div className="tariff-card__icon-circle">
+        <Truck />
+      </div>
+
+      <div className="tariff-card__content">
+        <span className="tariff-card__badge">
+          {pluralizeMachines(vehicleCount)}
+        </span>
+
+        <h3 className="tariff-card__title">{title}</h3>
+
+        <div className="tariff-card__price">
+          <span className="tariff-card__price-prefix">От</span>
+          <span className="tariff-card__price-value">{formatPrice(price)}</span>
+        </div>
+
+        <ul className="tariff-card__list">
+          {features.map((feature) => (
+            <li key={feature}>{feature}</li>
+          ))}
+        </ul>
+      </div>
+    </article>
+  );
+}
+
 function App() {
   const [fromCity, setFromCity] = useState('Москва');
   const [toCity, setToCity] = useState('Санкт-Петербург');
-  const [weight, setWeight] = useState(weights[0].label);
-  const [estimate, setEstimate] = useState(null);
+  const [weightValue, setWeightValue] = useState('1000 кг');
   const [openMenu, setOpenMenu] = useState(null);
+  const [isCalculating, setIsCalculating] = useState(false);
+  const [result, setResult] = useState(null);
+  const [validationMessage, setValidationMessage] = useState('');
+  const resultsRef = useRef(null);
+  const mapContainerRef = useRef(null);
+  const leafletMapRef = useRef(null);
+  const markersRef = useRef([]);
+  const routeLineRef = useRef(null);
 
   useEffect(() => {
     if (!openMenu) return undefined;
@@ -328,40 +643,215 @@ function App() {
     };
   }, [openMenu]);
 
-  const selectedWeight = useMemo(
-    () => weights.find((item) => item.label === weight) ?? weights[0],
-    [weight],
-  );
+  useEffect(() => () => {
+    if (leafletMapRef.current) {
+      leafletMapRef.current.remove();
+    }
+  }, []);
 
-  const calculatedPrice = useMemo(() => {
-    const fromRate = cityRates[fromCity] ?? 1;
-    const toRate = cityRates[toCity] ?? 1;
-    const routeFactor = fromCity === toCity ? 0.62 : (fromRate + toRate) / 2;
-    return Math.round((3400 + selectedWeight.kg * 8.5) * selectedWeight.factor * routeFactor);
-  }, [fromCity, selectedWeight.factor, selectedWeight.kg, toCity]);
+  const routeLink = useMemo(() => {
+    if (!result) return '#';
 
-  const handleCalculate = (event) => {
-    event.preventDefault();
-    setOpenMenu(null);
-    setEstimate({
-      price: calculatedPrice,
-      days: fromCity === toCity ? '1-2 дня' : toCity === 'Владивосток' ? '8-12 дней' : '3-7 дней',
+    return buildRouteLink(result.fromCity, result.toCity);
+  }, [result]);
+
+  const scrollToResults = () => {
+    const resultsNode = resultsRef.current;
+    if (!resultsNode) return;
+
+    const topbar = document.querySelector('.topbar');
+    const topbarHeight = topbar ? topbar.offsetHeight : 0;
+    const top = resultsNode.getBoundingClientRect().top + window.scrollY - topbarHeight - 12;
+
+    window.scrollTo({ top, behavior: 'smooth' });
+  };
+
+  const clearMapLayers = () => {
+    markersRef.current.forEach((m) => leafletMapRef.current?.removeLayer(m));
+    markersRef.current = [];
+    if (routeLineRef.current) {
+      leafletMapRef.current?.removeLayer(routeLineRef.current);
+      routeLineRef.current = null;
+    }
+  };
+
+  const initMap = () => {
+    if (leafletMapRef.current) return;
+
+    if (!mapContainerRef.current) return;
+
+    leafletMapRef.current = L.map(mapContainerRef.current, {
+      zoomControl: false,
+      attributionControl: false,
+      scrollWheelZoom: false,
+    }).setView([55.7558, 37.6176], 5);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 18,
+    }).addTo(leafletMapRef.current);
+
+    leafletMapRef.current.on('focus', () => {
+      leafletMapRef.current.scrollWheelZoom.enable();
+    });
+
+    leafletMapRef.current.on('blur', () => {
+      leafletMapRef.current.scrollWheelZoom.disable();
     });
   };
 
-  return (
-    <main className="app-shell">
-      <header className="topbar" aria-label="Верхнее меню">
-        <a className="brand" href="#" aria-label="Росперевозки">
-          <img src={logo} alt="Росперевозки" className="brand-logo" />
-        </a>
+  const drawRouteOnMap = async (nextFromCity, nextToCity) => {
+    initMap();
+    clearMapLayers();
 
-        <a className="phone-link" href="tel:88005553535" aria-label="Позвонить 8 800 555 35 35">
-          <Phone size={21} fill="currentColor" />
-          <span>88005553535</span>
-        </a>
+    const fromLatLng = leafletLatLng(nextFromCity);
+    const toLatLng = leafletLatLng(nextToCity);
+
+    if (!fromLatLng || !toLatLng) throw new Error('No coordinates');
+
+    let distanceKm;
+    let coords;
+
+    try {
+      const route = await fetchOsrmRoute(nextFromCity, nextToCity);
+
+      distanceKm = Math.round(route.distance / 1000);
+
+      if (distanceKm < 1) distanceKm = 1;
+
+      coords = route.geometry.coordinates.map((c) => [c[1], c[0]]);
+    } catch {
+      distanceKm = getApproximateDistanceKm(nextFromCity, nextToCity);
+      coords = [fromLatLng, toLatLng];
+    }
+
+    const bounds = L.latLngBounds([fromLatLng, toLatLng]);
+
+    routeLineRef.current = L.polyline(coords, {
+      color: '#ff6b21',
+      weight: 4,
+      opacity: 0.85,
+    }).addTo(leafletMapRef.current);
+
+    const fromIcon = L.divIcon({
+      className: 'map-marker-from',
+      html: '<div class="map-marker-inner map-marker-from-inner"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" stroke-width="2.5"><circle cx="12" cy="10" r="3"/><path d="M12 21s-8-6-8-11a8 8 0 1 1 16 0c0 5-8 11-8 11z"/></svg></div>',
+      iconSize: [36, 36],
+      iconAnchor: [18, 36],
+    });
+
+    const toIcon = L.divIcon({
+      className: 'map-marker-to',
+      html: '<div class="map-marker-inner map-marker-to-inner"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 12l2 2 4-4"/></svg></div>',
+      iconSize: [36, 36],
+      iconAnchor: [18, 36],
+    });
+
+    const fromMarker = L.marker(fromLatLng, { icon: fromIcon }).addTo(leafletMapRef.current);
+    const toMarker = L.marker(toLatLng, { icon: toIcon }).addTo(leafletMapRef.current);
+
+    markersRef.current = [fromMarker, toMarker];
+
+    if (coords.length > 2) {
+      coords.forEach((c) => bounds.extend(c));
+    }
+
+    leafletMapRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 12 });
+
+    return { distanceKm };
+  };
+
+  const handleCalculate = async (event) => {
+    event.preventDefault();
+
+    const nextFromCity = fromCity.trim();
+    const nextToCity = toCity.trim();
+    const nextWeightKg = parseWeight(weightValue);
+
+    if (!nextFromCity || !nextToCity || nextWeightKg <= 0) {
+      setValidationMessage('Укажите города отправления, прибытия и вес груза.');
+      return;
+    }
+
+    setValidationMessage('');
+    setOpenMenu(null);
+    setIsCalculating(true);
+
+    setResult({
+      fromCity: nextFromCity,
+      toCity: nextToCity,
+      weightKg: nextWeightKg,
+      isPending: true,
+      routeLabel: `${nextFromCity} → ${nextToCity}`,
+    });
+
+    await waitForNextPaint();
+    scrollToResults();
+
+    try {
+      const { distanceKm } = await drawRouteOnMap(nextFromCity, nextToCity);
+
+      await waitForNextPaint();
+
+      setResult(
+        buildEstimate({
+          distanceKm,
+          fromCity: nextFromCity,
+          toCity: nextToCity,
+          weightKg: nextWeightKg,
+        }),
+      );
+    } catch {
+      const fallbackDistanceKm = getApproximateDistanceKm(nextFromCity, nextToCity);
+
+      initMap();
+      clearMapLayers();
+
+      const fromLatLng = leafletLatLng(nextFromCity);
+      const toLatLng = leafletLatLng(nextToCity);
+
+      if (fromLatLng && toLatLng) {
+        routeLineRef.current = L.polyline([fromLatLng, toLatLng], {
+          color: '#ff6b21',
+          weight: 4,
+          opacity: 0.85,
+          dashArray: '8 8',
+        }).addTo(leafletMapRef.current);
+
+        L.marker(fromLatLng).addTo(leafletMapRef.current);
+        L.marker(toLatLng).addTo(leafletMapRef.current);
+
+        leafletMapRef.current.fitBounds(L.latLngBounds([fromLatLng, toLatLng]), { padding: [50, 50], maxZoom: 12 });
+      }
+
+      setResult(
+        buildEstimate({
+          distanceKm: fallbackDistanceKm,
+          fromCity: nextFromCity,
+          toCity: nextToCity,
+          weightKg: nextWeightKg,
+        }),
+      );
+    } finally {
+      setIsCalculating(false);
+    }
+  };
+
+  return (
+    <>
+      <header className="topbar" aria-label="Верхнее меню">
+        <div className="topbar-inner">
+          <a className="brand" href="#" aria-label="Росперевозки">
+            <img src={logo} alt="Росперевозки" className="brand-logo" />
+          </a>
+
+          <a className="phone-link" href="tel:+74995200523" aria-label="Позвонить +7 (499) 520-05-23">
+            <Phone size={21} fill="currentColor" />
+            <span>+7 (499) 520-05-23</span>
+          </a>
+        </div>
       </header>
 
+    <main className="app-shell">
       <div className="hero-zone" aria-hidden="true">
         <img
           className="hero-visual"
@@ -380,9 +870,9 @@ function App() {
             id="from"
             label="Откуда"
             value={fromCity}
-            options={cities}
+            options={cityOptions}
             onChange={setFromCity}
-            iconClass="bi-geo-alt-fill"
+            icon={<MapPin size={22} aria-hidden="true" />}
             tone="orange"
             openMenu={openMenu}
             setOpenMenu={setOpenMenu}
@@ -392,9 +882,9 @@ function App() {
             id="to"
             label="Куда"
             value={toCity}
-            options={cities}
+            options={cityOptions}
             onChange={setToCity}
-            iconClass="bi-geo-alt-fill"
+            icon={<MapPin size={22} aria-hidden="true" />}
             tone="blue"
             openMenu={openMenu}
             setOpenMenu={setOpenMenu}
@@ -403,30 +893,109 @@ function App() {
           <SelectField
             id="weight"
             label="Вес"
-            value={weight}
-            options={weights}
-            onChange={setWeight}
-            iconClass="bi-speedometer2"
+            value={weightValue}
+            options={weightOptions}
+            onChange={setWeightValue}
+            icon={<Gauge size={22} aria-hidden="true" />}
             tone="orange"
             openMenu={openMenu}
             setOpenMenu={setOpenMenu}
+            inputMode="numeric"
+            emptyText="Введите вес вручную"
           />
         </div>
 
         <button className="calculate-button" type="submit" aria-label="Рассчитать стоимость">
           <span className="button-icon">
-            <i className="bi bi-calculator-fill" aria-hidden="true" />
+            {isCalculating ? (
+              <LoaderCircle className="is-spinning" size={24} aria-hidden="true" />
+            ) : (
+              <Calculator size={24} aria-hidden="true" />
+            )}
           </span>
-          <span>Рассчитать стоимость</span>
+          <span>{isCalculating ? 'Считаем маршрут...' : 'Рассчитать стоимость'}</span>
           <span className="button-arrow">
             <ArrowRight size={27} />
           </span>
         </button>
 
-        <span className="sr-only" aria-live="polite">
-          {estimate ? `${formatPrice(estimate.price)}, ${estimate.days}` : ''}
-        </span>
+        {validationMessage ? (
+          <p className="inline-message" role="alert">{validationMessage}</p>
+        ) : null}
       </form>
+
+      {result ? (
+        <section ref={resultsRef} className="results-section" aria-label="Результаты расчета">
+          {result.isPending ? (
+            <div className="results-loading">
+              <LoaderCircle className="is-spinning" size={20} />
+              <span>Строим маршрут и подтягиваем цены по тарифам...</span>
+            </div>
+          ) : (
+            <>
+              <RouteCard
+                routeLabel={result.routeLabel}
+                weightKg={result.weightKg}
+                distanceLabel={result.distanceLabel}
+              />
+
+              {result.isOversize ? (
+                <div className="results-note">
+                  Грузы тяжелее 21 тонны считаются тяжеловесными. Если груз делится на части, обычно
+                  потребуется 2 машины. Для неделимого груза нужна спецтехника, цена рассчитывается
+                  индивидуально.
+                </div>
+              ) : null}
+
+              {result.sharedPrice && result.dedicatedPrice ? (
+                <>
+                  <TariffCard
+                    title="Сборный груз"
+                    price={result.sharedPrice}
+                    vehicleCount={result.vehicleCount}
+                    features={result.sharedFeatures}
+                  />
+                  <TariffCard
+                    title={result.dedicatedLabel}
+                    price={result.dedicatedPrice}
+                    vehicleCount={result.vehicleCount}
+                    features={result.dedicatedFeatures}
+                    recommended
+                  />
+                </>
+              ) : null}
+            </>
+          )}
+
+          <div className="map-panel">
+            <div className="map-panel__header">
+              <div>
+                <span className="results-kicker">Маршрут</span>
+                <h3 className="map-panel__title">Карта перевозки</h3>
+              </div>
+
+              <a className="map-panel__link" href={routeLink} target="_blank" rel="noreferrer">
+                <MapPinned size={16} />
+                Открыть
+              </a>
+            </div>
+
+            <div
+              className={`route-map ${result.isPending ? 'is-loading' : ''}`}
+              aria-label="Карта маршрута"
+            >
+              <div ref={mapContainerRef} className="route-map__canvas" aria-hidden="true" />
+
+              {result.isPending ? (
+                <div className="route-map__overlay">
+                  <LoaderCircle className="is-spinning" size={22} />
+                  <span>Готовим карту...</span>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       <div className="status-zone">
         <section className="status-row" aria-label="Преимущества доставки">
@@ -469,7 +1038,7 @@ function App() {
           <Truck size={28} />
           <span>Услуги</span>
         </a>
-        <a className="call-action" href="tel:88005553535" aria-label="Быстрый звонок">
+        <a className="call-action" href="tel:+74995200523" aria-label="Быстрый звонок">
           <Phone size={32} fill="currentColor" />
         </a>
         <a className="nav-item" href="#">
@@ -482,7 +1051,9 @@ function App() {
         </a>
       </nav>
     </main>
+    </>
   );
 }
 
 export default App;
+

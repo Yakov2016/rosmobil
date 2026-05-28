@@ -57,7 +57,6 @@ async function loadAppFonts() {
     ...[600, 700, 800].map((weight) =>
       document.fonts.load(`${weight} 16px Montserrat`, fontTextSample),
     ),
-    document.fonts.load('400 16px bootstrap-icons', '\uF3E7\uF5EA\uF414'),
   ]);
 
   await document.fonts.ready;
