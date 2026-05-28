@@ -53,94 +53,6 @@ const cityRates = {
   Владивосток: 2.05,
 };
 
-// Примерные расстояния между городами (км) - упрощенная версия Google Directions
-const distances = {
-  'Москва-Санкт-Петербург': 712,
-  'Москва-Казань': 820,
-  'Москва-Нижний Новгород': 440,
-  'Москва-Екатеринбург': 1810,
-  'Москва-Новосибирск': 3310,
-  'Москва-Краснодар': 1350,
-  'Москва-Ростов-на-Дону': 1090,
-  'Москва-Самара': 1050,
-  'Москва-Челябинск': 1750,
-  'Москва-Пермь': 1430,
-  'Москва-Уфа': 1520,
-  'Москва-Владивосток': 9350,
-  'Санкт-Петербург-Казань': 1530,
-  'Санкт-Петербург-Нижний Новгород': 1200,
-  'Санкт-Петербург-Екатеринбург': 2260,
-  'Санкт-Петербург-Новосибирск': 4020,
-  'Санкт-Петербург-Краснодар': 1960,
-  'Санкт-Петербург-Ростов-на-Дону': 1750,
-  'Санкт-Петербург-Самара': 1680,
-  'Санкт-Петербург-Челябинск': 2420,
-  'Санкт-Петербург-Пермь': 2090,
-  'Санкт-Петербург-Уфа': 2180,
-  'Санкт-Петербург-Владивосток': 10060,
-  'Казань-Екатеринбург': 1050,
-  'Казань-Новосибирск': 2650,
-  'Казань-Краснодар': 1580,
-  'Казань-Ростов-на-Дону': 1320,
-  'Казань-Самара': 380,
-  'Казань-Челябинск': 920,
-  'Казань-Пермь': 620,
-  'Казань-Уфа': 530,
-  'Казань-Владивосток': 8530,
-  'Нижний Новгород-Екатеринбург': 1400,
-  'Нижний Новгород-Новосибирск': 2890,
-  'Нижний Новгород-Краснодар': 1520,
-  'Нижний Новгород-Ростов-на-Дону': 1260,
-  'Нижний Новгород-Самара': 620,
-  'Нижний Новгород-Челябинск': 1320,
-  'Нижний Новгород-Пермь': 1010,
-  'Нижний Новгород-Уфа': 1100,
-  'Нижний Новгород-Владивосток': 8930,
-  'Екатеринбург-Новосибирск': 1620,
-  'Екатеринбург-Краснодар': 2580,
-  'Екатеринбург-Ростов-на-Дону': 2350,
-  'Екатеринбург-Самара': 1120,
-  'Екатеринбург-Челябинск': 230,
-  'Екатеринбург-Пермь': 380,
-  'Екатеринбург-Уфа': 550,
-  'Екатеринбург-Владивосток': 7540,
-  'Новосибирск-Краснодар': 3850,
-  'Новосибирск-Ростов-на-Дону': 3620,
-  'Новосибирск-Самара': 2380,
-  'Новосибирск-Челябинск': 1530,
-  'Новосибирск-Пермь': 1780,
-  'Новосибирск-Уфа': 1870,
-  'Новосибирск-Владивосток': 5920,
-  'Краснодар-Ростов-на-Дону': 280,
-  'Краснодар-Самара': 1480,
-  'Краснодар-Челябинск': 2350,
-  'Краснодар-Пермь': 2200,
-  'Краснодар-Уфа': 2050,
-  'Краснодар-Владивосток': 9630,
-  'Ростов-на-Дону-Самара': 1200,
-  'Ростов-на-Дону-Челябинск': 2070,
-  'Ростов-на-Дону-Пермь': 1920,
-  'Ростов-на-Дону-Уфа': 1770,
-  'Ростов-на-Дону-Владивосток': 9350,
-  'Самара-Челябинск': 720,
-  'Самара-Пермь': 720,
-  'Самара-Уфа': 480,
-  'Самара-Владивосток': 8150,
-  'Челябинск-Пермь': 580,
-  'Челябинск-Уфа': 350,
-  'Челябинск-Владивосток': 7310,
-  'Пермь-Уфа': 380,
-  'Пермь-Владивосток': 7690,
-  'Уфа-Владивосток': 7500,
-};
-
-function getDistance(from, to) {
-  if (from === to) return 50;
-  const key1 = `${from}-${to}`;
-  const key2 = `${to}-${from}`;
-  return distances[key1] || distances[key2] || 1000;
-}
-
 function SoftHomeIcon() {
   return (
     <svg viewBox="0 0 28 28" aria-hidden="true" focusable="false">
@@ -421,29 +333,12 @@ function App() {
     [weight],
   );
 
-  const distance = useMemo(() => getDistance(fromCity, toCity), [fromCity, toCity]);
-
-  // Расчет стоимости как на rosperevozki.ru - два тарифа: Сборный груз и Отдельный 20-тонник
   const calculatedPrice = useMemo(() => {
     const fromRate = cityRates[fromCity] ?? 1;
     const toRate = cityRates[toCity] ?? 1;
     const routeFactor = fromCity === toCity ? 0.62 : (fromRate + toRate) / 2;
-    const basePrice = Math.round((3400 + selectedWeight.kg * 8.5) * selectedWeight.factor * routeFactor);
-    
-    // Тариф "Сборный груз" - цена за кг с учетом расстояния
-    const consolidatedRatePerKm = 18; // руб/км за сборный груз
-    const consolidatedPrice = Math.round(distance * consolidatedRatePerKm * (selectedWeight.kg / 1000));
-    
-    // Тариф "Отдельный 20-тонник" - цена за машину с учетом расстояния и веса
-    const truckRatePerKm = 45; // руб/км за 20-тонник
-    const truckPrice = Math.round(distance * truckRatePerKm * routeFactor);
-    
-    return {
-      base: basePrice,
-      consolidated: Math.max(consolidatedPrice, basePrice * 0.7),
-      truck: Math.max(truckPrice, basePrice * 1.2),
-    };
-  }, [fromCity, selectedWeight.factor, selectedWeight.kg, toCity, distance]);
+    return Math.round((3400 + selectedWeight.kg * 8.5) * selectedWeight.factor * routeFactor);
+  }, [fromCity, selectedWeight.factor, selectedWeight.kg, toCity]);
 
   const handleCalculate = (event) => {
     event.preventDefault();
@@ -451,7 +346,6 @@ function App() {
     setEstimate({
       price: calculatedPrice,
       days: fromCity === toCity ? '1-2 дня' : toCity === 'Владивосток' ? '8-12 дней' : '3-7 дней',
-      distance: distance,
     });
   };
 
@@ -530,76 +424,9 @@ function App() {
         </button>
 
         <span className="sr-only" aria-live="polite">
-          {estimate ? `${formatPrice(estimate.price.truck)}, ${estimate.days}` : ''}
+          {estimate ? `${formatPrice(estimate.price)}, ${estimate.days}` : ''}
         </span>
       </form>
-
-      {/* Результаты расчета - показываем только после нажатия кнопки */}
-      {estimate && (
-        <div className="results-section" id="results">
-          <div className="results-header">
-            <h2 className="results-title">Результат расчёта</h2>
-            <p className="results-distance">{estimate.distance} км • {estimate.days}</p>
-          </div>
-          
-          {/* Карточка 1: Сборный груз */}
-          <div className="tariff-card tariff-card--consolidated">
-            <div className="tariff-card__header">
-              <span className="tariff-card__label">Сборный груз</span>
-              <div className="tariff-card__truck-icon">
-                <Truck size={24} />
-              </div>
-            </div>
-            <div className="tariff-card__body">
-              <ul className="tariff-card__features">
-                <li className="tariff-card__feature tariff-card__feature--green">Гарантия лучшей цены</li>
-                <li className="tariff-card__feature">Личный логист</li>
-                <li className="tariff-card__feature">Надежный транспорт</li>
-              </ul>
-              <div className="tariff-card__availability">
-                <Truck size={20} />
-                <span>5 свободных машин</span>
-              </div>
-            </div>
-            <div className="tariff-card__footer">
-              <span className="tariff-card__price">от {formatPrice(estimate.price.consolidated)}</span>
-              <a href="#contact-form" className="tariff-card__button">Заказать</a>
-            </div>
-          </div>
-
-          {/* Карточка 2: Отдельный 20-тонник */}
-          <div className="tariff-card tariff-card--truck">
-            <div className="tariff-card__header">
-              <span className="tariff-card__label">Отдельный 20-тонник</span>
-              <div className="tariff-card__truck-icon">
-                <Truck size={24} />
-              </div>
-            </div>
-            <div className="tariff-card__body">
-              <ul className="tariff-card__features">
-                <li className="tariff-card__feature tariff-card__feature--green">Подача машины в день заказа</li>
-                <li className="tariff-card__feature">Личный логист</li>
-                <li className="tariff-card__feature">Надежный транспорт</li>
-              </ul>
-              <div className="tariff-card__availability">
-                <Truck size={20} />
-                <span>3 свободных машины</span>
-              </div>
-            </div>
-            <div className="tariff-card__footer">
-              <span className="tariff-card__price">от {formatPrice(estimate.price.truck)}</span>
-              <a href="#contact-form" className="tariff-card__button">Заказать</a>
-            </div>
-          </div>
-
-          {/* Блок с предупреждением для тяжелых грузов */}
-          {selectedWeight.kg > 21000 && (
-            <div className="heavy-cargo-warning">
-              <p>Грузы массой более 21 тонны считаются тяжеловесными. Если груз можно разделить на части, то для перевозки потребуется 2 машины. Для неделимых грузов необходимо использовать спецтехнику (трал) - стоимость рассчитывается индивидуально.</p>
-            </div>
-          )}
-        </div>
-      )}
 
       <div className="status-zone">
         <section className="status-row" aria-label="Преимущества доставки">
