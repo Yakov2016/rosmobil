@@ -453,14 +453,6 @@ function App() {
       days: fromCity === toCity ? '1-2 дня' : toCity === 'Владивосток' ? '8-12 дней' : '3-7 дней',
       distance: distance,
     });
-    
-    // Автоматический скролл к результатам после расчета
-    setTimeout(() => {
-      const resultsElement = document.getElementById('results');
-      if (resultsElement) {
-        resultsElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }, 100);
   };
 
   return (
@@ -550,56 +542,53 @@ function App() {
             <p className="results-distance">{estimate.distance} км • {estimate.days}</p>
           </div>
           
-          {/* Сетка с двумя карточками тарифов в одну строку */}
-          <div className="tariff-grid">
-            {/* Карточка 1: Сборный груз */}
-            <div className="tariff-card tariff-card--consolidated">
-              <div className="tariff-card__header">
-                <span className="tariff-card__label">Сборный груз</span>
-                <div className="tariff-card__truck-icon">
-                  <Truck size={24} />
-                </div>
-              </div>
-              <div className="tariff-card__body">
-                <ul className="tariff-card__features">
-                  <li className="tariff-card__feature tariff-card__feature--green">Гарантия лучшей цены</li>
-                  <li className="tariff-card__feature">Личный логист</li>
-                  <li className="tariff-card__feature">Надежный транспорт</li>
-                </ul>
-                <div className="tariff-card__availability">
-                  <Truck size={20} />
-                  <span>5 свободных машин</span>
-                </div>
-              </div>
-              <div className="tariff-card__footer">
-                <span className="tariff-card__price">от {formatPrice(estimate.price.consolidated)}</span>
-                <a href="#contact-form" className="tariff-card__button">Заказать</a>
+          {/* Карточка 1: Сборный груз */}
+          <div className="tariff-card tariff-card--consolidated">
+            <div className="tariff-card__header">
+              <span className="tariff-card__label">Сборный груз</span>
+              <div className="tariff-card__truck-icon">
+                <Truck size={24} />
               </div>
             </div>
+            <div className="tariff-card__body">
+              <ul className="tariff-card__features">
+                <li className="tariff-card__feature tariff-card__feature--green">Гарантия лучшей цены</li>
+                <li className="tariff-card__feature">Личный логист</li>
+                <li className="tariff-card__feature">Надежный транспорт</li>
+              </ul>
+              <div className="tariff-card__availability">
+                <Truck size={20} />
+                <span>5 свободных машин</span>
+              </div>
+            </div>
+            <div className="tariff-card__footer">
+              <span className="tariff-card__price">от {formatPrice(estimate.price.consolidated)}</span>
+              <a href="#contact-form" className="tariff-card__button">Заказать</a>
+            </div>
+          </div>
 
-            {/* Карточка 2: Отдельный 20-тонник */}
-            <div className="tariff-card tariff-card--truck">
-              <div className="tariff-card__header">
-                <span className="tariff-card__label">Отдельный 20-тонник</span>
-                <div className="tariff-card__truck-icon">
-                  <Truck size={24} />
-                </div>
+          {/* Карточка 2: Отдельный 20-тонник */}
+          <div className="tariff-card tariff-card--truck">
+            <div className="tariff-card__header">
+              <span className="tariff-card__label">Отдельный 20-тонник</span>
+              <div className="tariff-card__truck-icon">
+                <Truck size={24} />
               </div>
-              <div className="tariff-card__body">
-                <ul className="tariff-card__features">
-                  <li className="tariff-card__feature tariff-card__feature--green">Подача машины в день заказа</li>
-                  <li className="tariff-card__feature">Личный логист</li>
-                  <li className="tariff-card__feature">Надежный транспорт</li>
-                </ul>
-                <div className="tariff-card__availability">
-                  <Truck size={20} />
-                  <span>3 свободных машины</span>
-                </div>
+            </div>
+            <div className="tariff-card__body">
+              <ul className="tariff-card__features">
+                <li className="tariff-card__feature tariff-card__feature--green">Подача машины в день заказа</li>
+                <li className="tariff-card__feature">Личный логист</li>
+                <li className="tariff-card__feature">Надежный транспорт</li>
+              </ul>
+              <div className="tariff-card__availability">
+                <Truck size={20} />
+                <span>3 свободных машины</span>
               </div>
-              <div className="tariff-card__footer">
-                <span className="tariff-card__price">от {formatPrice(estimate.price.truck)}</span>
-                <a href="#contact-form" className="tariff-card__button">Заказать</a>
-              </div>
+            </div>
+            <div className="tariff-card__footer">
+              <span className="tariff-card__price">от {formatPrice(estimate.price.truck)}</span>
+              <a href="#contact-form" className="tariff-card__button">Заказать</a>
             </div>
           </div>
 
