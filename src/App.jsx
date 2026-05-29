@@ -3,19 +3,27 @@ import {
   ArrowRight,
   Calculator,
   ChevronDown,
+  ChevronRight,
+  Clock,
   Contact,
   Gauge,
   LoaderCircle,
+  Mail,
   MapPin,
   MapPinned,
   Menu,
+  MessageCircle,
+  MessageSquare,
   Phone,
+  Send,
   Truck,
 } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import logo from '../logo.svg';
 import heroImage from '../hero.png';
+import kontHeroImage from '../Konthero.png';
+
 
 const speedIcon = '/icon/speed.png';
 const shIcon = '/icon/sh.png';
@@ -333,7 +341,6 @@ function SelectField({
   const isOpen = openMenu === id;
   const [inputValue, setInputValue] = useState(value);
   const [hasTyped, setHasTyped] = useState(false);
-  const [replaceOnType, setReplaceOnType] = useState(false);
   const inputRef = useRef(null);
 
   const visibleOptions = useMemo(() => {
@@ -355,7 +362,6 @@ function SelectField({
     if (!isOpen) {
       setInputValue(value);
       setHasTyped(false);
-      setReplaceOnType(false);
       return;
     }
 
@@ -371,17 +377,8 @@ function SelectField({
       }
 
       input.setSelectionRange(input.value.length, input.value.length);
-      setReplaceOnType(true);
     });
   }, [isOpen, value]);
-
-  const replaceInputValue = (nextValue) => {
-    setInputValue(nextValue);
-    setHasTyped(nextValue.trim().length > 0);
-    setReplaceOnType(false);
-    setOpenMenu(id);
-    onChange(nextValue);
-  };
 
   return (
     <div className="field">
@@ -396,7 +393,7 @@ function SelectField({
           <div className="select-trigger">
             <input
               ref={inputRef}
-              className={`combobox-input ${replaceOnType ? 'is-soft-selected' : ''}`}
+              className="combobox-input"
               type="text"
               inputMode={inputMode}
               value={inputValue}
@@ -406,80 +403,18 @@ function SelectField({
               autoCorrect="off"
               spellCheck="false"
               enterKeyHint="done"
-              onPointerDown={() => {
-                if (document.activeElement === inputRef.current) {
-                  setReplaceOnType(false);
-                }
-              }}
-              onFocus={(event) => {
+              onFocus={() => {
                 setOpenMenu(id);
-                event.currentTarget.setSelectionRange(
-                  event.currentTarget.value.length,
-                  event.currentTarget.value.length,
-                );
-                setReplaceOnType(true);
-              }}
-              onBeforeInput={(event) => {
-                if (!replaceOnType) return;
-
-                const { data, inputType } = event.nativeEvent;
-
-                if (inputType?.startsWith('insert')) {
-                  event.preventDefault();
-                  replaceInputValue(data ?? '');
-                  return;
-                }
-
-                if (inputType === 'deleteContentBackward' || inputType === 'deleteContentForward') {
-                  event.preventDefault();
-                  replaceInputValue('');
-                }
-              }}
-              onPaste={(event) => {
-                if (!replaceOnType) return;
-
-                event.preventDefault();
-                replaceInputValue(event.clipboardData.getData('text'));
-              }}
-              onSelect={(event) => {
-                if (event.currentTarget.selectionStart !== event.currentTarget.selectionEnd) {
-                  setReplaceOnType(false);
-                }
               }}
               onChange={(event) => {
-                const nextValue = replaceOnType && event.target.value.startsWith(value)
-                  ? event.target.value.slice(value.length)
-                  : event.target.value;
+                const nextValue = event.target.value;
 
                 setInputValue(nextValue);
                 setHasTyped(nextValue.trim().length > 0);
-                setReplaceOnType(false);
                 setOpenMenu(id);
                 onChange(nextValue);
               }}
               onKeyDown={(event) => {
-                if (
-                  replaceOnType
-                  && event.key.length === 1
-                  && !event.altKey
-                  && !event.ctrlKey
-                  && !event.metaKey
-                ) {
-                  event.preventDefault();
-                  replaceInputValue(event.key);
-                  return;
-                }
-
-                if (replaceOnType && (event.key === 'Backspace' || event.key === 'Delete')) {
-                  event.preventDefault();
-                  replaceInputValue('');
-                  return;
-                }
-
-                if (event.key.startsWith('Arrow') || event.key === 'Home' || event.key === 'End') {
-                  setReplaceOnType(false);
-                }
-
                 if (event.key === 'Escape') {
                   setOpenMenu(null);
                   return;
@@ -545,35 +480,42 @@ function SelectField({
 }
 
 function RouteCard({ routeLabel, weightKg, distanceLabel }) {
+  const parts = routeLabel.split('→').map((s) => s.trim());
+
   return (
     <article className="route-card">
-      <div className="route-card__top-row">
-        <span className="route-card__badge">Результат расчета</span>
-
-        <div className="route-card__info-stack">
-          <span className="route-card__info-item">
-            <Gauge size={16} className="route-card__info-icon route-card__info-icon--orange" />
-            {formatNumber(weightKg)} кг
-          </span>
-          <span className="route-card__info-item">
-            <MapPin size={16} className="route-card__info-icon route-card__info-icon--blue" />
-            {distanceLabel}
-          </span>
-        </div>
+      <div className="route-card__cities">
+        <span className="route-card__city">{parts[0]}</span>
+        <span className="route-card__arrow">↓</span>
+        <span className="route-card__city">{parts[1]}</span>
       </div>
 
-      <h2 className="route-card__route">
-        {routeLabel.split('→').map((part, i, arr) => (
-          <span key={i}>
-            {part.trim()}
-            {i < arr.length - 1 && <span className="route-card__route-arrow">→</span>}
-          </span>
-        ))}
-      </h2>
-
-      <div className="route-card__image-placeholder" />
+      <div className="route-card__info-stack">
+        <span className="route-card__info-item">
+          <Gauge size={16} className="route-card__info-icon route-card__info-icon--orange" />
+          {formatNumber(weightKg)} кг
+        </span>
+        <span className="route-card__info-item">
+          <MapPin size={16} className="route-card__info-icon route-card__info-icon--blue" />
+          {distanceLabel}
+        </span>
+      </div>
     </article>
   );
+}
+
+function pluralizeFreeMachines(count) {
+  if (count === 0) return 'Нет свободных машин';
+
+  const lastDigit = count % 10;
+  const lastTwo = count % 100;
+
+  if (lastTwo >= 11 && lastTwo <= 19) return `${formatNumber(count)} свободных машин`;
+
+  if (lastDigit === 1) return `${formatNumber(count)} свободная машина`;
+  if (lastDigit >= 2 && lastDigit <= 4) return `${formatNumber(count)} свободные машины`;
+
+  return `${formatNumber(count)} свободных машин`;
 }
 
 function TariffCard({
@@ -581,21 +523,10 @@ function TariffCard({
   price,
   vehicleCount,
   features,
-  recommended,
 }) {
   return (
-    <article className={`tariff-card ${recommended ? 'tariff-card--recommended' : ''}`}>
-      {recommended ? <div className="tariff-card__ribbon">Рекомендуем</div> : null}
-
-      <div className="tariff-card__icon-circle">
-        <Truck />
-      </div>
-
+    <article className="tariff-card">
       <div className="tariff-card__content">
-        <span className="tariff-card__badge">
-          {pluralizeMachines(vehicleCount)}
-        </span>
-
         <h3 className="tariff-card__title">{title}</h3>
 
         <div className="tariff-card__price">
@@ -609,11 +540,20 @@ function TariffCard({
           ))}
         </ul>
       </div>
+
+      <div className="tariff-card__action">
+        <button className="tariff-card__select-btn">Выбрать</button>
+        <span className="tariff-card__free-count">
+          {vehicleCount > 0 ? '\u2713 ' : ''}{pluralizeFreeMachines(vehicleCount)}
+        </span>
+      </div>
     </article>
   );
 }
 
 function App() {
+  const [page, setPage] = useState('main');
+
   const [fromCity, setFromCity] = useState('Москва');
   const [toCity, setToCity] = useState('Санкт-Петербург');
   const [weightValue, setWeightValue] = useState('1000 кг');
@@ -659,11 +599,7 @@ function App() {
     const resultsNode = resultsRef.current;
     if (!resultsNode) return;
 
-    const topbar = document.querySelector('.topbar');
-    const topbarHeight = topbar ? topbar.offsetHeight : 0;
-    const top = resultsNode.getBoundingClientRect().top + window.scrollY - topbarHeight - 12;
-
-    window.scrollTo({ top, behavior: 'smooth' });
+    resultsNode.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   const clearMapLayers = () => {
@@ -852,17 +788,80 @@ function App() {
       </header>
 
     <main className="app-shell">
-      <div className="hero-zone" aria-hidden="true">
-        <img
-          className="hero-visual"
-          src={heroImage}
-          width="1536"
-          height="1021"
-          alt=""
-          decoding="async"
-          fetchPriority="high"
-        />
-      </div>
+      {page === 'contacts' ? (
+        <>
+          <div className="hero-zone" aria-hidden="true">
+            <img
+              className="hero-visual"
+              src={kontHeroImage}
+              width="1536"
+              height="1021"
+              alt=""
+              decoding="async"
+            />
+          </div>
+
+          <div className="contacts-card">
+            <h1 className="contacts-section-title">Контакты</h1>
+            <p className="contacts-section-subtitle">Выберите удобный способ связи</p>
+
+            <div className="contacts-list">
+              {[
+                { title: 'Telegram', value: '@rosperevozki', gradient: 'linear-gradient(135deg, #40bfff, #1d9be8)', icon: Send },
+                { title: 'WhatsApp', value: '+7 (800) 555-35-35', gradient: 'linear-gradient(135deg, #62e66b, #21c943)', icon: MessageCircle },
+                { title: 'MAX', value: 'Написать в MAX', gradient: 'linear-gradient(135deg, #8d5cff, #6338f0)', icon: MessageSquare },
+                { title: 'ВКонтакте', value: 'vk.com/rosperevozki', gradient: 'linear-gradient(135deg, #3fa1ff, #1976e8)', icon: MessageCircle },
+              ].map((item) => {
+                const Icon = item.icon;
+                return (
+                  <a key={item.title} className="contacts-item" href="#">
+                    <span className="contacts-item-icon" style={{ background: item.gradient }}>
+                      <Icon size={24} color="#fff" />
+                    </span>
+                    <span className="contacts-item-text">
+                      <span className="contacts-item-name">{item.title}</span>
+                      <span className="contacts-item-value">{item.value}</span>
+                    </span>
+                    <ChevronRight size={22} className="contacts-chevron" />
+                  </a>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="contacts-info-card">
+            {[
+              { label: 'Телефон', value: '+7 (499) 520-05-23', icon: Phone },
+              { label: 'Email', value: 'info@rosperevozki.ru', icon: Mail },
+              { label: 'Режим работы', value: 'Ежедневно, 9:00–21:00', icon: Clock },
+            ].map((row, i, arr) => {
+              const Icon = row.icon;
+              return (
+                <div key={row.label} className={`contacts-info-row ${i === arr.length - 1 ? 'contacts-info-row--last' : ''}`}>
+                  <span className="contacts-info-icon">
+                    <Icon size={20} />
+                  </span>
+                  <span className="contacts-info-label">{row.label}</span>
+                  <span className="contacts-info-value">{row.value}</span>
+                  <ChevronRight size={18} className="contacts-info-chevron" />
+                </div>
+              );
+            })}
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="hero-zone" aria-hidden="true">
+            <img
+              className="hero-visual"
+              src={heroImage}
+              width="1536"
+              height="1021"
+              alt=""
+              decoding="async"
+              fetchPriority="high"
+            />
+          </div>
 
       <form className="quote-panel" onSubmit={handleCalculate} aria-label="Расчет грузоперевозки">
         <div className="fields">
@@ -960,7 +959,6 @@ function App() {
                     price={result.dedicatedPrice}
                     vehicleCount={result.vehicleCount}
                     features={result.dedicatedFeatures}
-                    recommended
                   />
                 </>
               ) : null}
@@ -997,55 +995,58 @@ function App() {
         </section>
       ) : null}
 
-      <div className="status-zone">
-        <section className="status-row" aria-label="Преимущества доставки">
-          <article className="status-item">
-            <span className="status-icon">
-              <img src={speedIcon} alt="" className="status-icon-img" />
-            </span>
-            <span>
-              <strong>Доставка</strong>
-              в срок
-            </span>
-          </article>
-          <article className="status-item">
-            <span className="status-icon">
-              <img src={shIcon} alt="" className="status-icon-img" />
-            </span>
-            <span>
-              <strong>Страхование</strong>
-              по договору
-            </span>
-          </article>
-          <article className="status-item">
-            <span className="status-icon">
-              <img src={lmIcon} alt="" className="status-icon-img" />
-            </span>
-            <span>
-              <strong>Личный</strong>
-              менеджер
-            </span>
-          </article>
-        </section>
-      </div>
+        <div className="status-zone">
+          <section className="status-row" aria-label="Преимущества доставки">
+            <article className="status-item">
+              <span className="status-icon">
+                <img src={speedIcon} alt="" className="status-icon-img" />
+              </span>
+              <span>
+                <strong>Доставка</strong>
+                в срок
+              </span>
+            </article>
+            <article className="status-item">
+              <span className="status-icon">
+                <img src={shIcon} alt="" className="status-icon-img" />
+              </span>
+              <span>
+                <strong>Страхование</strong>
+                по договору
+              </span>
+            </article>
+            <article className="status-item">
+              <span className="status-icon">
+                <img src={lmIcon} alt="" className="status-icon-img" />
+              </span>
+              <span>
+                <strong>Личный</strong>
+                менеджер
+              </span>
+            </article>
+          </section>
+        </div>
+
+        </>
+      )}
 
       <nav className="bottom-nav" aria-label="Мобильное меню">
-        <a className="nav-item active" href="#">
+        <a className={`nav-item ${page === 'main' ? 'active' : ''}`} href="#" onClick={(e) => { e.preventDefault(); setPage('main'); }}>
           <SoftHomeIcon />
           <span>Главная</span>
         </a>
-        <a className="nav-item" href="#">
+        <a className="nav-item" href="#" onClick={(e) => { e.preventDefault(); }}>
           <Truck size={28} />
           <span>Услуги</span>
         </a>
         <a className="call-action" href="tel:+74995200523" aria-label="Быстрый звонок">
           <Phone size={32} fill="currentColor" />
         </a>
-        <a className="nav-item" href="#">
+        <a className={`nav-item ${page === 'contacts' ? 'active' : ''}`} href="#" onClick={(e) => { e.preventDefault(); setPage('contacts'); }}>
           <Contact size={28} />
           <span>Контакты</span>
         </a>
-        <a className="nav-item" href="#">
+        <a className="nav-item" href="#" onClick={(e) => { e.preventDefault(); }}>
           <Menu size={29} />
           <span>Меню</span>
         </a>
